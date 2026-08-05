@@ -13,7 +13,7 @@ Each instance gets its own status card and progress bar.
 - Active Primary or Shared Library.
 - Downloaded and total photo/video item count.
 - Downloaded bytes and estimated final library size.
-- Remaining size, estimated completion time, and transfer-rate trend.
+- Remaining size, estimated completion time, and a measured 10-minute transfer-rate sparkline.
 - Explicit download phase and relative last activity.
 - Archive size, file count, current transfer rate, partial downloads, errors, and restarts.
 

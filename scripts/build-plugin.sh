@@ -24,9 +24,9 @@ mkdir -p "$root/plugin"
   printf '\n'
   printf '%s\n' '<CHANGES>'
   printf '%s\n' "$version"
-  printf '%s\n' '- Progress-first information hierarchy with a prominent completion percentage.'
-  printf '%s\n' '- Added phase, remaining size, ETA, smoothed transfer rate, and rate trend.'
-  printf '%s\n' '- Grouped performance and health signals with technical details collapsed by default.'
+  printf '%s\n' '- Added a measured, per-instance download-speed sparkline covering the last 10 minutes.'
+  printf '%s\n' '- Refined status alignment, number emphasis, ETA copy, and compact panel spacing.'
+  printf '%s\n' '- Restored Archive details as a lightweight disclosure row.'
   printf '%s\n' '</CHANGES>'
   printf '\n'
 

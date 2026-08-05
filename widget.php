@@ -42,6 +42,39 @@ if (!function_exists('ipdw_ago')) {
   }
 }
 
+if (!function_exists('ipdw_sparkline')) {
+  function ipdw_sparkline($samples) {
+    $series = [];
+    foreach (is_array($samples) ? $samples : [] as $sample) {
+      if (!is_array($sample) || !isset($sample['time'], $sample['rate'])) continue;
+      $series[] = [
+        'time' => (int)$sample['time'],
+        'rate' => max(0, (int)$sample['rate']),
+      ];
+    }
+    if (count($series) < 2) {
+      return "<div class='ipdw-sparkline-empty'>Collecting 10-minute history</div>";
+    }
+
+    $rates = array_column($series, 'rate');
+    $minimum = min($rates);
+    $range = max(1, max($rates) - $minimum);
+    $windowStart = time() - 600;
+    $points = [];
+    foreach ($series as $sample) {
+      $x = round((max($windowStart, $sample['time']) - $windowStart) / 5, 1);
+      $y = round(27 - ((($sample['rate'] - $minimum) / $range) * 22), 1);
+      $points[] = $x . ',' . $y;
+    }
+    $line = implode(' ', $points);
+    $firstX = explode(',', reset($points))[0];
+    $lastX = explode(',', end($points))[0];
+    $area = $firstX . ',30 ' . $line . ' ' . $lastX . ',30';
+    return "<svg class='ipdw-sparkline' viewBox='0 0 120 30' preserveAspectRatio='none' role='img' aria-label='Measured download speed over the last 10 minutes'>"
+      . "<polygon points='" . $area . "'></polygon><polyline points='" . $line . "'></polyline></svg>";
+  }
+}
+
 if (!function_exists('ipdw_render_body')) {
   function ipdw_render_body() {
     $status = ipdw_status();
@@ -56,16 +89,7 @@ if (!function_exists('ipdw_render_body')) {
       $stateClass = $authIssue ? 'ipdw-pill-bad' : ($healthy ? 'ipdw-pill-good' : 'ipdw-pill-warn');
       $percent = number_format((float)$instance['percent'], 1);
       $rate = (int)$instance['rate'] > 0 ? ipdw_size($instance['rate']) . '/s' : 'Measuring';
-      $delta = $instance['rateDeltaPercent'] ?? null;
-      if ($delta === null) {
-        $speedContext = 'Collecting comparison';
-      } elseif (abs((int)$delta) <= 5) {
-        $speedContext = 'Stable vs previous sample';
-      } elseif ((int)$delta > 0) {
-        $speedContext = number_format((int)$delta) . '% faster than previous sample';
-      } else {
-        $speedContext = number_format(abs((int)$delta)) . '% slower than previous sample';
-      }
+      $sparkline = ipdw_sparkline($instance['rateHistory'] ?? []);
       $eta = (int)$instance['etaSeconds'] > 0 ? '~' . ipdw_duration($instance['etaSeconds']) : 'Calculating';
       if (($instance['phase'] ?? '') === 'Complete') $eta = 'Complete';
       $authText = $instance['authDays'] !== null
@@ -85,17 +109,18 @@ if (!function_exists('ipdw_render_body')) {
       $out .= "<section class='ipdw-hero'>"
             . "<div class='ipdw-hero-top'><div><span class='ipdw-phase'>" . ipdw_h($instance['phase']) . "</span>"
             . "<strong class='ipdw-percent' title='Estimated from downloaded archive items'>" . $percent . "%</strong></div>"
-            . "<div class='ipdw-eta'><span>Estimated completion</span><b>" . ipdw_h($eta) . "</b></div></div>"
+            . "<div class='ipdw-eta'><span>Finishes in</span><b>" . ipdw_h($eta) . "</b></div></div>"
             . "<div class='ipdw-bar' title='Progress is approximate'><div class='ipdw-fill' style='width:" . $percent . "%'></div></div>"
-            . "<div class='ipdw-items'><b>" . number_format((int)$instance['done']) . "</b> of " . number_format((int)$instance['total']) . " items</div>"
-            . "<div class='ipdw-storage'><div><b>" . ipdw_size($instance['downloadedBytes']) . "</b> of ~" . ipdw_size($instance['estimatedTotalBytes']) . " downloaded</div>"
-            . "<span>~" . ipdw_size($instance['remainingBytes']) . " remaining</span></div>"
+            . "<div class='ipdw-items'><b>" . number_format((int)$instance['done']) . "</b><span> of " . number_format((int)$instance['total']) . " items</span></div>"
+            . "<div class='ipdw-storage'><div><b>" . ipdw_size($instance['downloadedBytes']) . "</b><span> of ~" . ipdw_size($instance['estimatedTotalBytes']) . " downloaded</span></div>"
+            . "<div><b>~" . ipdw_size($instance['remainingBytes']) . "</b><span> remaining</span></div></div>"
             . "</section>";
 
       $out .= "<div class='ipdw-groups'>"
             . "<section class='ipdw-group'><h4>Download speed</h4>"
             . "<div class='ipdw-big-value'><i class='fa fa-tachometer'></i><b>" . ipdw_h($rate) . "</b></div>"
-            . "<div class='ipdw-secondary'>" . ipdw_h($speedContext) . "<span>Updated " . ipdw_h($lastActivity) . "</span></div></section>"
+            . $sparkline
+            . "<div class='ipdw-secondary'><span>Last 10 min</span><span>Updated " . ipdw_h($lastActivity) . "</span></div></section>"
             . "<section class='ipdw-group'><h4>Status</h4>"
             . "<div><span class='ipdw-pill " . $stateClass . "'><i></i>" . ipdw_h($state) . "</span></div>"
             . "<div class='ipdw-status-rows'>"

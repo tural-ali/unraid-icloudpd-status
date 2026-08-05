@@ -155,6 +155,20 @@ if (!function_exists('ipdw_collect_instance')) {
     if ($instantRate > 0 && $oldRate > 0) {
       $rate = (int)round(($oldRate * 0.65) + ($instantRate * 0.35));
     }
+
+    $rateHistory = [];
+    foreach (($previous['rateHistory'] ?? []) as $sample) {
+      $sampleTime = (int)($sample['time'] ?? 0);
+      $sampleRate = max(0, (int)($sample['rate'] ?? 0));
+      if ($sampleTime >= ($now - 600) && $sampleTime < $now) {
+        $rateHistory[] = ['time' => $sampleTime, 'rate' => $sampleRate];
+      }
+    }
+    if ($oldTime > 0 && $now > $oldTime && $bytes >= $oldBytes) {
+      $rateHistory[] = ['time' => $now, 'rate' => max(0, $instantRate)];
+    }
+    $rateHistory = array_slice($rateHistory, -41);
+
     $rateTrend = 'measuring';
     $rateDeltaPercent = null;
     if ($instantRate > 0 && $oldRate > 0) {
@@ -174,7 +188,7 @@ if (!function_exists('ipdw_collect_instance')) {
     } elseif (!empty($progress['complete']) || ($progress['total'] > 0 && $progress['done'] >= $progress['total'])) {
       $phase = 'Complete';
     } elseif ($progress['total'] > 0) {
-      $phase = 'Downloading originals';
+      $phase = 'Downloading originals…';
     } else {
       $phase = 'Scanning library';
     }
@@ -196,6 +210,7 @@ if (!function_exists('ipdw_collect_instance')) {
       'instantRate' => $instantRate,
       'rateTrend' => $rateTrend,
       'rateDeltaPercent' => $rateDeltaPercent,
+      'rateHistory' => $rateHistory,
       'remainingBytes' => $remainingBytes,
       'etaSeconds' => $etaSeconds,
       'phase' => $phase,
@@ -220,6 +235,7 @@ if (!function_exists('ipdw_status')) {
         'generated' => (int)($old['generated'] ?? 0),
         'bytes' => (int)($instance['bytes'] ?? 0),
         'rate' => (int)($instance['rate'] ?? 0),
+        'rateHistory' => is_array($instance['rateHistory'] ?? null) ? $instance['rateHistory'] : [],
       ];
     }
 
