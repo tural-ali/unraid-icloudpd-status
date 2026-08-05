@@ -34,7 +34,8 @@ if (!function_exists('ipdw_parse_log')) {
 
     foreach (preg_split('/\r?\n/', $log) as $line) {
       if (preg_match('/Downloading library: ([^\r\n]+)/', $line, $match)) {
-        $result['library'] = ipdw_library_name(trim($match[1]));
+        $result['zone'] = trim($match[1]);
+        $result['library'] = ipdw_library_name($result['zone']);
       }
       if (preg_match('/Downloading ([0-9]+) original photos and videos/', $line, $match)) {
         $result['total'] = (int)$match[1];
@@ -87,13 +88,21 @@ if (!function_exists('ipdw_collect_instance')) {
     $state = $container['State'] ?? [];
     $status = (string)($state['Status'] ?? 'missing');
     $health = (string)($state['Health']['Status'] ?? 'unknown');
-    $hostPath = '';
+    $rootHostPath = '';
+    $libraryHostPaths = [];
     foreach ($container['Mounts'] ?? [] as $mount) {
-      if (($mount['Destination'] ?? '') === '/home/user/iCloud') {
-        $hostPath = (string)($mount['Source'] ?? '');
-        break;
+      $destination = rtrim((string)($mount['Destination'] ?? ''), '/');
+      $source = rtrim((string)($mount['Source'] ?? ''), '/');
+      if ($destination === '/home/user/iCloud') {
+        $rootHostPath = $source;
+      } elseif (strpos($destination, '/home/user/iCloud/') === 0 && $source !== '') {
+        $libraryHostPaths[$destination] = $source;
       }
     }
+    $archivePaths = $libraryHostPaths
+      ? array_values(array_unique($libraryHostPaths))
+      : ($rootHostPath !== '' ? [$rootHostPath] : []);
+    $hostPath = $archivePaths ? $archivePaths[0] : '';
 
     $log = $status === 'running'
       ? ipdw_shell('/usr/bin/docker exec ' . $quotedName . ' cat /tmp/icloudpd/icloudpd_sync.log 2>/dev/null')
@@ -116,10 +125,10 @@ if (!function_exists('ipdw_collect_instance')) {
     }
 
     $authProbe = 'if [ ! -f /config/python_keyring/keyring_pass.cfg ]; then printf uninitialized; exit; fi; '
-      . 'apple_id="$(awk -F= \x27$1 == \"apple_id\" { print $2; exit }\x27 /config/icloudpd.conf)"; '
-      . 'cookie_file="$(printf %s "$apple_id" | tr -cd \x27a-z0-9_\x27)"; '
+      . 'apple_id="$(grep "^apple_id=" /config/icloudpd.conf | cut -d= -f2-)"; '
+      . 'cookie_file="$(printf "%s" "$apple_id" | tr -cd "a-z0-9_")"; '
       . 'if [ ! -s "/config/$cookie_file" ]; then printf missing; '
-      . 'elif grep -q \x27X-APPLE-WEBAUTH-HSA-TRUST\x27 "/config/$cookie_file"; then printf trusted; '
+      . 'elif grep -q "X-APPLE-WEBAUTH-HSA-TRUST" "/config/$cookie_file"; then printf trusted; '
       . 'else printf untrusted; fi';
     $authState = $status === 'running'
       ? ipdw_shell('/usr/bin/docker exec ' . $quotedName . ' sh -c ' . escapeshellarg($authProbe) . ' 2>/dev/null')
@@ -135,16 +144,24 @@ if (!function_exists('ipdw_collect_instance')) {
     $bytes = 0;
     $files = 0;
     $parts = 0;
-    if ($hostPath !== '' && is_dir($hostPath)) {
-      $quotedPath = escapeshellarg($hostPath);
-      $bytes = (int)ipdw_shell('/usr/bin/du -sb ' . $quotedPath . ' 2>/dev/null | /usr/bin/cut -f1');
-      $files = (int)ipdw_shell('/usr/bin/find ' . $quotedPath . " -type f ! -name '.mounted' 2>/dev/null | /usr/bin/wc -l");
-      $parts = (int)ipdw_shell('/usr/bin/find ' . $quotedPath . " -type f -name '*.part' 2>/dev/null | /usr/bin/wc -l");
+    $archiveSources = [];
+    foreach ($archivePaths as $archivePath) {
+      if ($archivePath === '' || !is_dir($archivePath)) continue;
+      $quotedPath = escapeshellarg($archivePath);
+      $pathBytes = (int)ipdw_shell('/usr/bin/du -sb ' . $quotedPath . ' 2>/dev/null | /usr/bin/cut -f1');
+      $pathFiles = (int)ipdw_shell('/usr/bin/find ' . $quotedPath . " -type f ! -name '.mounted' 2>/dev/null | /usr/bin/wc -l");
+      $pathParts = (int)ipdw_shell('/usr/bin/find ' . $quotedPath . " -type f -name '*.part' 2>/dev/null | /usr/bin/wc -l");
+      $archiveSources[$archivePath] = $pathBytes;
+      $bytes += $pathBytes;
+      $files += $pathFiles;
+      $parts += $pathParts;
     }
 
     $zone = (string)($progress['zone'] ?? '');
-    if ($hostPath !== '' && preg_match('/^[A-Za-z0-9_.-]+$/', $zone)) {
-      $libraryPath = rtrim($hostPath, '/') . '/' . $zone;
+    if (preg_match('/^[A-Za-z0-9_.-]+$/', $zone)) {
+      $containerLibraryPath = '/home/user/iCloud/' . $zone;
+      $libraryPath = $libraryHostPaths[$containerLibraryPath]
+        ?? ($rootHostPath !== '' ? $rootHostPath . '/' . $zone : '');
       if (is_dir($libraryPath)) {
         $quotedLibrary = escapeshellarg($libraryPath);
         $progress['downloadedBytes'] = (int)ipdw_shell('/usr/bin/du -sb ' . $quotedLibrary . ' 2>/dev/null | /usr/bin/cut -f1');
@@ -220,6 +237,8 @@ if (!function_exists('ipdw_collect_instance')) {
       'authState' => $authState,
       'authAction' => $authAction,
       'hostPath' => $hostPath,
+      'hostPaths' => $archivePaths,
+      'archiveSources' => $archiveSources,
       'files' => $files,
       'parts' => $parts,
       'bytes' => $bytes,

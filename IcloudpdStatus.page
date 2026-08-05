@@ -100,12 +100,7 @@ if (!function_exists('ipdw_render_tile')) {
       . ".ipdw-detail-grid span{color:#657180}"
       . ".black .ipdw-detail-grid span{color:#aab2bd}"
       . ".ipdw-detail-grid b{text-align:right;font-weight:600}"
-      . ".ipdw-note{font-size:8.5px;color:#7a8592;margin-top:7px;line-height:1.35;opacity:.7}"
-      . ".black .ipdw-note{color:#8f98a3}"
       . ".ipdw-empty{padding:10px;color:#657180}"
-      . ".ipdw-links{display:flex;gap:8px;margin-top:12px}"
-      . ".ipdw-links a{flex:1;text-align:center;text-decoration:none;padding:7px 9px;border:1px solid #cbd3dc;border-radius:7px;font-weight:600;color:inherit;background:#f5f7f9}"
-      . ".black .ipdw-links a{border-color:#3a4047;background:#25282c}"
       . "</style>";
 
     $script = "<script>"
@@ -132,9 +127,7 @@ if (!function_exists('ipdw_render_tile')) {
       . "})();"
       . "</script>";
 
-    $body = "<div class='ipdw'><div id='ipdw-body'>" . ipdw_render_body() . "</div>"
-      . "<nav class='ipdw-links'><a href='/Docker'><i class='fa fa-cubes'></i> Docker</a>"
-      . "<a href='/Shares'><i class='fa fa-folder-open'></i> Shares</a></nav></div>";
+    $body = "<div class='ipdw'><div id='ipdw-body'>" . ipdw_render_body() . "</div></div>";
 
     return "<tbody title='All iCloudPD archive download instances'>"
       . "<tr><td><i class='fa fa-cloud-download' style='margin-right:6px'></i>iCloudPD Archives</td></tr>"

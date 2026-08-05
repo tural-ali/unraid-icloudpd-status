@@ -103,11 +103,20 @@ if (!function_exists('ipdw_render_body')) {
         $activeCount++;
         if ($defaultOpenName === '') $defaultOpenName = (string)$instance['name'];
       }
-      $path = (string)($instance['hostPath'] ?? '');
-      $archiveKey = $path !== '' ? $path : '__instance__' . (string)$instance['name'];
-      if (!isset($seenPaths[$archiveKey])) {
-        $archiveBytes += max(0, (int)($instance['bytes'] ?? 0));
-        $seenPaths[$archiveKey] = true;
+      $sources = is_array($instance['archiveSources'] ?? null) ? $instance['archiveSources'] : [];
+      if ($sources) {
+        foreach ($sources as $path => $bytes) {
+          if (isset($seenPaths[$path])) continue;
+          $archiveBytes += max(0, (int)$bytes);
+          $seenPaths[$path] = true;
+        }
+      } else {
+        $path = (string)($instance['hostPath'] ?? '');
+        $archiveKey = $path !== '' ? $path : '__instance__' . (string)$instance['name'];
+        if (!isset($seenPaths[$archiveKey])) {
+          $archiveBytes += max(0, (int)($instance['bytes'] ?? 0));
+          $seenPaths[$archiveKey] = true;
+        }
       }
     }
 
@@ -192,7 +201,7 @@ if (!function_exists('ipdw_render_body')) {
             . "</div></details>";
       $out .= "</div></details>";
     }
-    $out .= "</div><div class='ipdw-note'>Progress, remaining size, and ETA are estimates because Apple does not report the final byte total and Live Photos can create paired files.</div></div>";
+    $out .= "</div></div>";
     return $out;
   }
 }

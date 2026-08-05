@@ -24,8 +24,10 @@ mkdir -p "$root/plugin"
   printf '\n'
   printf '%s\n' '<CHANGES>'
   printf '%s\n' "$version"
-  printf '%s\n' '- Detects partial Apple sessions that are missing the required MFA trust marker.'
-  printf '%s\n' '- Keeps Retry authentication visible until Apple authentication is genuinely complete.'
+  printf '%s\n' '- Fixed cookie-path detection that falsely marked authenticated archives as untrusted.'
+  printf '%s\n' '- Correctly reports both active Tural and Suza downloads as healthy.'
+  printf '%s\n' '- Removed the estimate note and Docker and Shares footer actions.'
+  printf '%s\n' '- Added support for clean per-library host folders through nested Docker mounts.'
   printf '%s\n' '</CHANGES>'
   printf '\n'
 
