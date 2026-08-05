@@ -72,6 +72,7 @@ For an account that has already been initialized, it opens:
 
 Authentication opens in a normal browser tab through a plugin-owned ttyd launcher.
 The launcher removes stale terminal sockets and keeps a diagnostic log instead of relying on Unraid's popup wrapper.
+The status collector also checks Apple's MFA trust marker so a partial session cannot be reported as healthy.
 
 The plugin never reads or stores an Apple password, MFA code, or cookie content.
 

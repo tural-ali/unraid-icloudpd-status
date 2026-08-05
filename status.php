@@ -115,9 +115,17 @@ if (!function_exists('ipdw_collect_instance')) {
       $authDays = (int)$authMatch[1];
     }
 
-    $keyringCheck = 'if [ -f /config/python_keyring/keyring_pass.cfg ]; then printf yes; else printf no; fi';
-    $authInitialized = $status === 'running'
-      && ipdw_shell('/usr/bin/docker exec ' . $quotedName . ' sh -c ' . escapeshellarg($keyringCheck) . ' 2>/dev/null') === 'yes';
+    $authProbe = 'if [ ! -f /config/python_keyring/keyring_pass.cfg ]; then printf uninitialized; exit; fi; '
+      . 'apple_id="$(awk -F= \x27$1 == \"apple_id\" { print $2; exit }\x27 /config/icloudpd.conf)"; '
+      . 'cookie_file="$(printf %s "$apple_id" | tr -cd \x27a-z0-9_\x27)"; '
+      . 'if [ ! -s "/config/$cookie_file" ]; then printf missing; '
+      . 'elif grep -q \x27X-APPLE-WEBAUTH-HSA-TRUST\x27 "/config/$cookie_file"; then printf trusted; '
+      . 'else printf untrusted; fi';
+    $authState = $status === 'running'
+      ? ipdw_shell('/usr/bin/docker exec ' . $quotedName . ' sh -c ' . escapeshellarg($authProbe) . ' 2>/dev/null')
+      : 'unknown';
+    $authInitialized = !in_array($authState, ['uninitialized', 'unknown', ''], true);
+    if (in_array($authState, ['missing', 'untrusted'], true)) $authIssue = true;
     $authAction = $authInitialized
       ? '/usr/local/bin/reauth.sh'
       : '/usr/local/bin/sync-icloud.sh --Initialise';
@@ -209,6 +217,7 @@ if (!function_exists('ipdw_collect_instance')) {
       'authIssue' => $authIssue,
       'authDays' => $authDays,
       'authInitialized' => $authInitialized,
+      'authState' => $authState,
       'authAction' => $authAction,
       'hostPath' => $hostPath,
       'files' => $files,

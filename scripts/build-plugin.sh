@@ -24,8 +24,8 @@ mkdir -p "$root/plugin"
   printf '\n'
   printf '%s\n' '<CHANGES>'
   printf '%s\n' "$version"
-  printf '%s\n' '- Replaced the unreliable authentication popup with a normal browser tab.'
-  printf '%s\n' '- Added a plugin-owned ttyd launcher with retained diagnostics and stale-socket cleanup.'
+  printf '%s\n' '- Detects partial Apple sessions that are missing the required MFA trust marker.'
+  printf '%s\n' '- Keeps Retry authentication visible until Apple authentication is genuinely complete.'
   printf '%s\n' '</CHANGES>'
   printf '\n'
 
