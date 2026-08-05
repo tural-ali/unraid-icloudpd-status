@@ -13,9 +13,14 @@ Each instance gets its own status card and progress bar.
 - Active Primary or Shared Library.
 - Downloaded and total photo/video item count.
 - Downloaded bytes and estimated final library size.
+- Remaining size, estimated completion time, and transfer-rate trend.
+- Explicit download phase and relative last activity.
 - Archive size, file count, current transfer rate, partial downloads, errors, and restarts.
 
 The Dashboard refreshes every 15 seconds.
+
+The primary view is progress-first.
+Technical archive metrics are available under **Archive details** without competing with completion status.
 
 ## Installation
 

@@ -143,11 +143,38 @@ if (!function_exists('ipdw_collect_instance')) {
       }
     }
 
-    $rate = 0;
+    $instantRate = 0;
     $oldTime = (int)($previous['generated'] ?? 0);
     $oldBytes = (int)($previous['bytes'] ?? 0);
+    $oldRate = (int)($previous['rate'] ?? 0);
     if ($oldTime > 0 && $now > $oldTime && $bytes >= $oldBytes) {
-      $rate = (int)(($bytes - $oldBytes) / ($now - $oldTime));
+      $instantRate = (int)(($bytes - $oldBytes) / ($now - $oldTime));
+    }
+
+    $rate = $instantRate;
+    if ($instantRate > 0 && $oldRate > 0) {
+      $rate = (int)round(($oldRate * 0.65) + ($instantRate * 0.35));
+    }
+    $rateTrend = 'measuring';
+    if ($instantRate > 0 && $oldRate > 0) {
+      $ratio = $instantRate / $oldRate;
+      $rateTrend = $ratio > 1.15 ? 'faster' : ($ratio < 0.85 ? 'slower' : 'stable');
+    }
+
+    $remainingBytes = max(0, (int)$progress['estimatedTotalBytes'] - (int)$progress['downloadedBytes']);
+    $etaSeconds = $rate > 0 && $remainingBytes > 0
+      ? (int)round($remainingBytes / $rate)
+      : 0;
+    if ($authIssue) {
+      $phase = 'Authentication required';
+    } elseif ($status !== 'running') {
+      $phase = ucfirst($status);
+    } elseif (!empty($progress['complete']) || ($progress['total'] > 0 && $progress['done'] >= $progress['total'])) {
+      $phase = 'Complete';
+    } elseif ($progress['total'] > 0) {
+      $phase = 'Downloading originals';
+    } else {
+      $phase = 'Scanning library';
     }
 
     return array_merge($progress, [
@@ -164,6 +191,11 @@ if (!function_exists('ipdw_collect_instance')) {
       'parts' => $parts,
       'bytes' => $bytes,
       'rate' => $rate,
+      'instantRate' => $instantRate,
+      'rateTrend' => $rateTrend,
+      'remainingBytes' => $remainingBytes,
+      'etaSeconds' => $etaSeconds,
+      'phase' => $phase,
       'approximate' => true,
     ]);
   }
@@ -184,6 +216,7 @@ if (!function_exists('ipdw_status')) {
       $oldByName[(string)($instance['name'] ?? '')] = [
         'generated' => (int)($old['generated'] ?? 0),
         'bytes' => (int)($instance['bytes'] ?? 0),
+        'rate' => (int)($instance['rate'] ?? 0),
       ];
     }
 

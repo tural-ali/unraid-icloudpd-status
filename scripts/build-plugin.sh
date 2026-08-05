@@ -24,9 +24,9 @@ mkdir -p "$root/plugin"
   printf '\n'
   printf '%s\n' '<CHANGES>'
   printf '%s\n' "$version"
-  printf '%s\n' '- Initial public release.'
-  printf '%s\n' '- Automatic multi-instance discovery and per-instance progress.'
-  printf '%s\n' '- MFA health reporting and interactive reauthentication.'
+  printf '%s\n' '- Progress-first information hierarchy with a prominent completion percentage.'
+  printf '%s\n' '- Added phase, remaining size, ETA, smoothed transfer rate, and rate trend.'
+  printf '%s\n' '- Grouped performance and health signals with technical details collapsed by default.'
   printf '%s\n' '</CHANGES>'
   printf '\n'
 
