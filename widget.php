@@ -1,5 +1,6 @@
 <?PHP
-require_once '/usr/local/emhttp/plugins/icloudpd-status/status.php';
+$ipdwStatusFile = '/usr/local/emhttp/plugins/icloudpd-status/status.php';
+require_once is_file($ipdwStatusFile) ? $ipdwStatusFile : __DIR__ . '/status.php';
 
 if (!function_exists('ipdw_h')) {
   function ipdw_h($value) {
@@ -42,6 +43,14 @@ if (!function_exists('ipdw_ago')) {
   }
 }
 
+if (!function_exists('ipdw_display_name')) {
+  function ipdw_display_name($name) {
+    $display = preg_replace('/^icloudpd[-_.]?/i', '', (string)$name);
+    if ($display === '') $display = (string)$name;
+    return ucwords(str_replace(['-', '_', '.'], ' ', $display));
+  }
+}
+
 if (!function_exists('ipdw_sparkline')) {
   function ipdw_sparkline($samples) {
     $series = [];
@@ -81,39 +90,78 @@ if (!function_exists('ipdw_render_body')) {
     $instances = $status['instances'] ?? [];
     if (!$instances) return "<div class='ipdw-empty'>No iCloudPD containers found.</div>";
 
-    $out = "<div class='ipdw-list'>";
+    $activeCount = 0;
+    $archiveBytes = 0;
+    $seenPaths = [];
+    $defaultOpenName = count($instances) === 1 ? (string)$instances[0]['name'] : '';
+    foreach ($instances as $instance) {
+      $phase = (string)($instance['phase'] ?? '');
+      $isActive = strpos($phase, 'Downloading') === 0
+        && ($instance['status'] ?? '') === 'running'
+        && empty($instance['authIssue']);
+      if ($isActive) {
+        $activeCount++;
+        if ($defaultOpenName === '') $defaultOpenName = (string)$instance['name'];
+      }
+      $path = (string)($instance['hostPath'] ?? '');
+      $archiveKey = $path !== '' ? $path : '__instance__' . (string)$instance['name'];
+      if (!isset($seenPaths[$archiveKey])) {
+        $archiveBytes += max(0, (int)($instance['bytes'] ?? 0));
+        $seenPaths[$archiveKey] = true;
+      }
+    }
+
+    $archiveLabel = count($instances) === 1 ? 'Archive' : 'Archives';
+    $activeLabel = $activeCount === 1 ? 'Active download' : 'Active downloads';
+    $out = "<div class='ipdw-list'><section class='ipdw-overview'>"
+      . "<div><b>" . number_format(count($instances)) . "</b><span>" . $archiveLabel . "</span></div>"
+      . "<div><b>" . number_format($activeCount) . "</b><span>" . $activeLabel . "</span></div>"
+      . "<div><b>" . ipdw_size($archiveBytes) . "</b><span>Archived</span></div>"
+      . "</section><div class='ipdw-archives'>";
+
     foreach ($instances as $instance) {
       $authIssue = !empty($instance['authIssue']);
       $healthy = $instance['status'] === 'running' && $instance['health'] === 'healthy' && !$authIssue;
       $state = $authIssue ? 'Authentication required' : ($healthy ? 'Healthy' : ucfirst($instance['status']));
       $stateClass = $authIssue ? 'ipdw-pill-bad' : ($healthy ? 'ipdw-pill-good' : 'ipdw-pill-warn');
+      $phase = (string)($instance['phase'] ?? 'Starting');
+      $isActive = strpos($phase, 'Downloading') === 0 && !$authIssue;
+      $isComplete = $phase === 'Complete';
+      $cardClass = $authIssue ? 'ipdw-card-bad' : ($isActive ? 'ipdw-card-active' : ($isComplete && $healthy ? 'ipdw-card-complete' : 'ipdw-card-idle'));
+      $open = (string)$instance['name'] === $defaultOpenName ? ' open' : '';
       $percent = number_format((float)$instance['percent'], 1);
       $rate = (int)$instance['rate'] > 0 ? ipdw_size($instance['rate']) . '/s' : 'Measuring';
       $sparkline = ipdw_sparkline($instance['rateHistory'] ?? []);
       $eta = (int)$instance['etaSeconds'] > 0 ? '~' . ipdw_duration($instance['etaSeconds']) : 'Calculating';
-      if (($instance['phase'] ?? '') === 'Complete') $eta = 'Complete';
+      if ($isComplete) $eta = 'Complete';
+      $etaSummary = $isComplete ? 'Completed' : ($eta === 'Calculating' ? 'Calculating ETA' : $eta . ' remaining');
       $authText = $instance['authDays'] !== null
         ? number_format((int)$instance['authDays']) . ' days'
         : ($authIssue ? 'Sign-in required' : 'Checking');
       $lastActivity = ipdw_ago($instance['lastActivity'] ?? '');
+      $displayName = ipdw_display_name($instance['name']);
 
-      $out .= "<article class='ipdw-card'>";
-      $out .= "<header class='ipdw-instance'><div><b>" . ipdw_h($instance['name']) . "</b>"
-            . "<span>" . ipdw_h($instance['library']) . "</span></div></header>";
+      $out .= "<details class='ipdw-card " . $cardClass . "' data-instance='" . ipdw_h($instance['name']) . "'" . $open . ">"
+            . "<summary class='ipdw-card-summary'>"
+            . "<div class='ipdw-instance'><div><b>" . ipdw_h($displayName) . "</b><span>" . ipdw_h($instance['library']) . "</span></div></div>"
+            . "<span class='ipdw-phase'>" . ipdw_h($phase) . "</span>"
+            . "<div class='ipdw-summary-progress'><strong>" . $percent . "%</strong><span>" . ipdw_h($etaSummary) . "</span></div>"
+            . "<div class='ipdw-bar' title='Progress is approximate'><div class='ipdw-fill' style='width:" . $percent . "%'></div></div>"
+            . "<div class='ipdw-summary-foot'><span><b>" . number_format((int)$instance['done']) . "</b> / " . number_format((int)$instance['total']) . " items</span>"
+            . "<span class='ipdw-pill " . $stateClass . "'><i></i>" . ipdw_h($state) . "</span></div>"
+            . "<div class='ipdw-toggle'><span class='ipdw-show'><i class='fa fa-chevron-right'></i> Show details</span>"
+            . "<span class='ipdw-hide'><i class='fa fa-chevron-down'></i> Hide details</span></div>"
+            . "</summary><div class='ipdw-expanded'>";
 
       if ($authIssue) {
         $out .= "<div class='ipdw-auth'><div><b>Apple authentication failed</b><span>Renew the session to resume downloads.</span></div>"
               . "<button type='button' onclick=\"openTerminal('docker','" . ipdw_h($instance['name']) . "','/usr/local/bin/reauth.sh');return false;\">Retry authentication</button></div>";
       }
 
-      $out .= "<section class='ipdw-hero'>"
-            . "<div class='ipdw-hero-top'><div><span class='ipdw-phase'>" . ipdw_h($instance['phase']) . "</span>"
-            . "<strong class='ipdw-percent' title='Estimated from downloaded archive items'>" . $percent . "%</strong></div>"
-            . "<div class='ipdw-eta'><span>Finishes in</span><b>" . ipdw_h($eta) . "</b></div></div>"
-            . "<div class='ipdw-bar' title='Progress is approximate'><div class='ipdw-fill' style='width:" . $percent . "%'></div></div>"
-            . "<div class='ipdw-items'><b>" . number_format((int)$instance['done']) . "</b><span> of " . number_format((int)$instance['total']) . " items</span></div>"
-            . "<div class='ipdw-storage'><div><b>" . ipdw_size($instance['downloadedBytes']) . "</b><span> of ~" . ipdw_size($instance['estimatedTotalBytes']) . " downloaded</span></div>"
-            . "<div><b>~" . ipdw_size($instance['remainingBytes']) . "</b><span> remaining</span></div></div>"
+      $out .= "<section class='ipdw-expanded-stats'>"
+            . "<div><span>Items</span><b>" . number_format((int)$instance['done']) . " of " . number_format((int)$instance['total']) . "</b></div>"
+            . "<div><span>Downloaded</span><b>" . ipdw_size($instance['downloadedBytes']) . " of ~" . ipdw_size($instance['estimatedTotalBytes']) . "</b></div>"
+            . "<div><span>Remaining</span><b>~" . ipdw_size($instance['remainingBytes']) . "</b></div>"
             . "</section>";
 
       $out .= "<div class='ipdw-groups'>"
@@ -134,11 +182,12 @@ if (!function_exists('ipdw_render_body')) {
             . "<span>Files on disk</span><b>" . number_format((int)$instance['files']) . "</b>"
             . "<span>Active partial files</span><b>" . number_format((int)$instance['parts']) . "</b>"
             . "<span>Container restarts</span><b>" . number_format((int)$instance['restarts']) . "</b>"
+            . "<span>Container name</span><b>" . ipdw_h($instance['name']) . "</b>"
             . "<span>Last log activity</span><b>" . ipdw_h($instance['lastActivity'] ?: 'Waiting') . " UTC</b>"
             . "</div></details>";
-      $out .= "</article>";
+      $out .= "</div></details>";
     }
-    $out .= "<div class='ipdw-note'>Progress, remaining size, and ETA are estimates because Apple does not report the final byte total and Live Photos can create paired files.</div></div>";
+    $out .= "</div><div class='ipdw-note'>Progress, remaining size, and ETA are estimates because Apple does not report the final byte total and Live Photos can create paired files.</div></div>";
     return $out;
   }
 }

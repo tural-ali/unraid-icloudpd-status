@@ -24,9 +24,9 @@ mkdir -p "$root/plugin"
   printf '\n'
   printf '%s\n' '<CHANGES>'
   printf '%s\n' "$version"
-  printf '%s\n' '- Added a measured, per-instance download-speed sparkline covering the last 10 minutes.'
-  printf '%s\n' '- Refined status alignment, number emphasis, ETA copy, and compact panel spacing.'
-  printf '%s\n' '- Restored Archive details as a lightweight disclosure row.'
+  printf '%s\n' '- Added an aggregate archive, active-download, and on-disk summary.'
+  printf '%s\n' '- Reworked every instance into a compact expandable card that scales to many archives.'
+  printf '%s\n' '- Preserved manual card expansion state across automatic Dashboard refreshes.'
   printf '%s\n' '</CHANGES>'
   printf '\n'
 

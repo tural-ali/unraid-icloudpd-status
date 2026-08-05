@@ -15,6 +15,7 @@ php -l "$root/widget.php"
 php -l "$root/widget-poll.php"
 tail -n +4 "$root/IcloudpdStatus.page" > "$temporary/IcloudpdStatus.php"
 php -l "$temporary/IcloudpdStatus.php"
+php "$root/tests/render-fixture.php"
 
 for source in "${sources[@]}"; do
   sed -n "/<FILE Name=\"\\/tmp\\/$source.b64\">/,/<\\/FILE>/p" "$manifest" \

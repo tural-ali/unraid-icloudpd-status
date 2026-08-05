@@ -4,6 +4,7 @@ A native Unraid Dashboard plugin for monitoring every iCloudPD Docker container 
 
 It automatically discovers current and future containers when either the container name or image name contains `icloudpd`.
 Each instance gets its own status card and progress bar.
+The Dashboard starts with an aggregate summary, then presents each instance as a compact expandable card.
 
 ## What it shows
 
@@ -19,8 +20,10 @@ Each instance gets its own status card and progress bar.
 
 The Dashboard refreshes every 15 seconds.
 
-The primary view is progress-first.
-Technical archive metrics are available under **Archive details** without competing with completion status.
+The primary view is progress-first and optimized for any number of instances.
+A sole instance and the first active download open automatically.
+Manual expansion state is preserved across refreshes.
+Transfer and technical archive metrics remain hidden until an instance is expanded.
 
 ## Installation
 
