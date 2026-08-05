@@ -61,7 +61,6 @@ $checks = [
   'Apple authentication required',
   'Set up authentication',
   'ipdwOpenAuthTerminal',
-  '/usr/local/bin/sync-icloud.sh --Initialise',
   'Show details',
   'Download speed',
 ];

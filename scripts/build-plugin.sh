@@ -5,7 +5,7 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 version="$(tr -d '[:space:]' < "$root/VERSION")"
 output="$root/plugin/icloudpd-status.plg"
 temporary="$output.tmp"
-sources=(status.php widget.php widget-poll.php auth-terminal.php IcloudpdStatus.page)
+sources=(status.php widget.php widget-poll.php auth-terminal.php auth-terminal-launch.sh IcloudpdStatus.page)
 
 mkdir -p "$root/plugin"
 
@@ -24,8 +24,8 @@ mkdir -p "$root/plugin"
   printf '\n'
   printf '%s\n' '<CHANGES>'
   printf '%s\n' "$version"
-  printf '%s\n' '- Fixed authentication windows closing immediately because of stale Unraid terminal sockets.'
-  printf '%s\n' '- Authentication retries now reset the selected container terminal before opening it.'
+  printf '%s\n' '- Replaced the unreliable authentication popup with a normal browser tab.'
+  printf '%s\n' '- Added a plugin-owned ttyd launcher with retained diagnostics and stale-socket cleanup.'
   printf '%s\n' '</CHANGES>'
   printf '\n'
 
@@ -52,6 +52,11 @@ mkdir -p "$root/plugin"
   printf '%s\n' '  install -m 600 "$PLG/$file" "$WEB/$file"'
   printf '%s\n' '  rm -f "/tmp/$file.b64"'
   printf '%s\n' 'done'
+  printf '%s\n' '[ -f "/tmp/auth-terminal-launch.sh.b64" ] || { echo "ERROR: Missing /tmp/auth-terminal-launch.sh.b64"; exit 1; }'
+  printf '%s\n' 'base64 -d < "/tmp/auth-terminal-launch.sh.b64" > "$PLG/auth-terminal-launch.sh"'
+  printf '%s\n' 'chmod 700 "$PLG/auth-terminal-launch.sh"'
+  printf '%s\n' 'install -m 700 "$PLG/auth-terminal-launch.sh" "$WEB/auth-terminal-launch.sh"'
+  printf '%s\n' 'rm -f "/tmp/auth-terminal-launch.sh.b64"'
   printf '%s\n' 'rm -f /var/local/emhttp/icloudpd-status-cache.json'
   printf '%s\n' 'echo "icloudpd-status installed. The Dashboard tile discovers all iCloudPD containers automatically."'
   printf '%s\n' ']]>'

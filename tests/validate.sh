@@ -3,7 +3,7 @@ set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 manifest="$root/plugin/icloudpd-status.plg"
-sources=(status.php widget.php widget-poll.php auth-terminal.php IcloudpdStatus.page)
+sources=(status.php widget.php widget-poll.php auth-terminal.php auth-terminal-launch.sh IcloudpdStatus.page)
 temporary="$(mktemp -d)"
 trap 'rm -rf "$temporary"' EXIT
 
@@ -14,6 +14,7 @@ php -l "$root/status.php"
 php -l "$root/widget.php"
 php -l "$root/widget-poll.php"
 php -l "$root/auth-terminal.php"
+bash -n "$root/auth-terminal-launch.sh"
 tail -n +4 "$root/IcloudpdStatus.page" > "$temporary/IcloudpdStatus.php"
 php -l "$temporary/IcloudpdStatus.php"
 php "$root/tests/render-fixture.php"
