@@ -110,6 +110,12 @@ if (!function_exists('ipdw_render_tile')) {
 
     $script = "<script>"
       . "(function(){"
+      . "window.ipdwOpenAuthTerminal=function(name,command){"
+      . "var ready=false;"
+      . "jQuery.ajax({url:'/plugins/icloudpd-status/auth-terminal.php',type:'POST',data:{name:name},async:false,success:function(){ready=true;}});"
+      . "if(!ready){alert('Could not prepare the authentication terminal. Open the Unraid Web Terminal and run the initialization command manually.');return;}"
+      . "openTerminal('docker',name,command);"
+      . "};"
       . "if(window.ipdwTimer){return;}"
       . "function poll(){jQuery.get('/plugins/icloudpd-status/widget-poll.php',function(markup){"
       . "var parsed=new DOMParser().parseFromString(markup,'text/html');"

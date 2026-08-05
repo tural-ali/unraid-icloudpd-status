@@ -5,7 +5,7 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 version="$(tr -d '[:space:]' < "$root/VERSION")"
 output="$root/plugin/icloudpd-status.plg"
 temporary="$output.tmp"
-sources=(status.php widget.php widget-poll.php IcloudpdStatus.page)
+sources=(status.php widget.php widget-poll.php auth-terminal.php IcloudpdStatus.page)
 
 mkdir -p "$root/plugin"
 
@@ -24,8 +24,8 @@ mkdir -p "$root/plugin"
   printf '\n'
   printf '%s\n' '<CHANGES>'
   printf '%s\n' "$version"
-  printf '%s\n' '- Fixed authentication actions for newly configured iCloudPD accounts.'
-  printf '%s\n' '- New accounts now launch first-time initialization; existing accounts keep the renewal flow.'
+  printf '%s\n' '- Fixed authentication windows closing immediately because of stale Unraid terminal sockets.'
+  printf '%s\n' '- Authentication retries now reset the selected container terminal before opening it.'
   printf '%s\n' '</CHANGES>'
   printf '\n'
 
@@ -45,7 +45,7 @@ mkdir -p "$root/plugin"
   printf '%s\n' 'PLG=/boot/config/plugins/icloudpd-status'
   printf '%s\n' 'WEB=/usr/local/emhttp/plugins/icloudpd-status'
   printf '%s\n' 'mkdir -p "$PLG" "$WEB"'
-  printf '%s\n' 'for file in status.php widget.php widget-poll.php IcloudpdStatus.page; do'
+  printf '%s\n' 'for file in status.php widget.php widget-poll.php auth-terminal.php IcloudpdStatus.page; do'
   printf '%s\n' '  [ -f "/tmp/$file.b64" ] || { echo "ERROR: Missing /tmp/$file.b64"; exit 1; }'
   printf '%s\n' '  base64 -d < "/tmp/$file.b64" > "$PLG/$file"'
   printf '%s\n' '  chmod 600 "$PLG/$file"'

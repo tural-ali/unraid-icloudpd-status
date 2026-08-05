@@ -160,7 +160,7 @@ if (!function_exists('ipdw_render_body')) {
 
       if ($authIssue) {
         $out .= "<div class='ipdw-auth'><div><b>" . ipdw_h($authTitle) . "</b><span>" . ipdw_h($authHelp) . "</span></div>"
-              . "<button type='button' onclick=\"openTerminal('docker','" . ipdw_h($instance['name']) . "','" . ipdw_h($authAction) . "');return false;\">" . ipdw_h($authButton) . "</button></div>";
+              . "<button type='button' onclick=\"ipdwOpenAuthTerminal('" . ipdw_h($instance['name']) . "','" . ipdw_h($authAction) . "');return false;\">" . ipdw_h($authButton) . "</button></div>";
       }
 
       $out .= "<section class='ipdw-expanded-stats'>"

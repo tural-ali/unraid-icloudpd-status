@@ -70,6 +70,8 @@ For an account that has already been initialized, it opens:
 /usr/local/bin/reauth.sh
 ```
 
+Before opening the terminal, the plugin removes any stale terminal socket left by an earlier failed or cancelled attempt.
+
 The plugin never reads or stores an Apple password, MFA code, or cookie content.
 
 ## Progress accuracy
