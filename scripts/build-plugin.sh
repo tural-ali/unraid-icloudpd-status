@@ -24,9 +24,8 @@ mkdir -p "$root/plugin"
   printf '\n'
   printf '%s\n' '<CHANGES>'
   printf '%s\n' "$version"
-  printf '%s\n' '- Added an aggregate archive, active-download, and on-disk summary.'
-  printf '%s\n' '- Reworked every instance into a compact expandable card that scales to many archives.'
-  printf '%s\n' '- Preserved manual card expansion state across automatic Dashboard refreshes.'
+  printf '%s\n' '- Fixed authentication actions for newly configured iCloudPD accounts.'
+  printf '%s\n' '- New accounts now launch first-time initialization; existing accounts keep the renewal flow.'
   printf '%s\n' '</CHANGES>'
   printf '\n'
 

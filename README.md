@@ -56,9 +56,15 @@ Containers that do not follow all four conventions are still discovered, but som
 
 ## Authentication retry
 
-When the container healthcheck or recent sync output reports an authentication failure, the card turns red and shows **Retry authentication**.
+When the container healthcheck or recent sync output reports an authentication failure, the card turns red and shows an authentication action.
 
-The button opens an Unraid interactive terminal directly into:
+For a new account without an iCloudPD keyring, the button opens an Unraid interactive terminal directly into:
+
+```bash
+/usr/local/bin/sync-icloud.sh --Initialise
+```
+
+For an account that has already been initialized, it opens:
 
 ```bash
 /usr/local/bin/reauth.sh

@@ -115,6 +115,13 @@ if (!function_exists('ipdw_collect_instance')) {
       $authDays = (int)$authMatch[1];
     }
 
+    $keyringCheck = 'if [ -f /config/python_keyring/keyring_pass.cfg ]; then printf yes; else printf no; fi';
+    $authInitialized = $status === 'running'
+      && ipdw_shell('/usr/bin/docker exec ' . $quotedName . ' sh -c ' . escapeshellarg($keyringCheck) . ' 2>/dev/null') === 'yes';
+    $authAction = $authInitialized
+      ? '/usr/local/bin/reauth.sh'
+      : '/usr/local/bin/sync-icloud.sh --Initialise';
+
     $progress = ipdw_parse_log($log);
 
     $bytes = 0;
@@ -201,7 +208,8 @@ if (!function_exists('ipdw_collect_instance')) {
       'restarts' => (int)($container['RestartCount'] ?? 0),
       'authIssue' => $authIssue,
       'authDays' => $authDays,
-      'authAction' => '/usr/local/bin/reauth.sh',
+      'authInitialized' => $authInitialized,
+      'authAction' => $authAction,
       'hostPath' => $hostPath,
       'files' => $files,
       'parts' => $parts,

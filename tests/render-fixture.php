@@ -31,10 +31,17 @@ function ipdw_fixture($name, $phase, $percent, $bytes, $hostPath) {
 }
 
 function ipdw_status() {
+  $suza = ipdw_fixture('icloudpd-suza', 'Authentication required', 0, 0, '/mnt/suza');
+  $suza['health'] = 'unhealthy';
+  $suza['authIssue'] = true;
+  $suza['authInitialized'] = false;
+  $suza['authAction'] = '/usr/local/bin/sync-icloud.sh --Initialise';
+
   return [
     'instances' => [
       ipdw_fixture('icloudpd-tural', 'Downloading originals…', 20, 100, '/mnt/tural'),
       ipdw_fixture('icloudpd-anna', 'Complete', 100, 200, '/mnt/anna'),
+      $suza,
     ],
   ];
 }
@@ -43,13 +50,17 @@ require dirname(__DIR__) . '/widget.php';
 
 $html = ipdw_render_body();
 $checks = [
-  "<b>2</b><span>Archives</span>",
+  "<b>3</b><span>Archives</span>",
   "<b>1</b><span>Active download</span>",
   "<b>300 B</b><span>Archived</span>",
   "data-instance='icloudpd-tural' open",
   "data-instance='icloudpd-anna'>",
   '<b>Tural</b>',
   '<b>Anna</b>',
+  '<b>Suza</b>',
+  'Apple authentication required',
+  'Set up authentication',
+  '/usr/local/bin/sync-icloud.sh --Initialise',
   'Show details',
   'Download speed',
 ];
@@ -61,12 +72,12 @@ foreach ($checks as $check) {
   }
 }
 
-if (substr_count($html, " class='ipdw-card ") !== 2) {
-  fwrite(STDERR, 'Expected exactly two archive cards.' . PHP_EOL);
+if (substr_count($html, " class='ipdw-card ") !== 3) {
+  fwrite(STDERR, 'Expected exactly three archive cards.' . PHP_EOL);
   exit(1);
 }
 
-if (substr_count($html, " data-instance=") !== 2 || substr_count($html, ' open') !== 1) {
+if (substr_count($html, " data-instance=") !== 3 || substr_count($html, ' open') !== 1) {
   fwrite(STDERR, 'Expected only the active archive to open by default.' . PHP_EOL);
   exit(1);
 }

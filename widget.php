@@ -138,6 +138,11 @@ if (!function_exists('ipdw_render_body')) {
       $authText = $instance['authDays'] !== null
         ? number_format((int)$instance['authDays']) . ' days'
         : ($authIssue ? 'Sign-in required' : 'Checking');
+      $authInitialized = !empty($instance['authInitialized']);
+      $authAction = (string)($instance['authAction'] ?? '/usr/local/bin/reauth.sh');
+      $authButton = $authInitialized ? 'Retry authentication' : 'Set up authentication';
+      $authTitle = $authInitialized ? 'Apple authentication failed' : 'Apple authentication required';
+      $authHelp = $authInitialized ? 'Renew the session to resume downloads.' : 'Complete first-time setup to start downloading.';
       $lastActivity = ipdw_ago($instance['lastActivity'] ?? '');
       $displayName = ipdw_display_name($instance['name']);
 
@@ -154,8 +159,8 @@ if (!function_exists('ipdw_render_body')) {
             . "</summary><div class='ipdw-expanded'>";
 
       if ($authIssue) {
-        $out .= "<div class='ipdw-auth'><div><b>Apple authentication failed</b><span>Renew the session to resume downloads.</span></div>"
-              . "<button type='button' onclick=\"openTerminal('docker','" . ipdw_h($instance['name']) . "','/usr/local/bin/reauth.sh');return false;\">Retry authentication</button></div>";
+        $out .= "<div class='ipdw-auth'><div><b>" . ipdw_h($authTitle) . "</b><span>" . ipdw_h($authHelp) . "</span></div>"
+              . "<button type='button' onclick=\"openTerminal('docker','" . ipdw_h($instance['name']) . "','" . ipdw_h($authAction) . "');return false;\">" . ipdw_h($authButton) . "</button></div>";
       }
 
       $out .= "<section class='ipdw-expanded-stats'>"
