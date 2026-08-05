@@ -4,6 +4,7 @@ A native Unraid Dashboard plugin for monitoring every iCloudPD Docker container 
 
 It automatically discovers current and future containers when either the container name or image name contains `icloudpd`.
 Each instance gets its own status card and progress bar.
+The Dashboard starts with an aggregate summary, then presents each instance as a compact expandable card.
 
 ## What it shows
 
@@ -13,9 +14,16 @@ Each instance gets its own status card and progress bar.
 - Active Primary or Shared Library.
 - Downloaded and total photo/video item count.
 - Downloaded bytes and estimated final library size.
+- Remaining size, estimated completion time, and a measured 10-minute transfer-rate sparkline.
+- Explicit download phase and relative last activity.
 - Archive size, file count, current transfer rate, partial downloads, errors, and restarts.
 
 The Dashboard refreshes every 15 seconds.
+
+The primary view is progress-first and optimized for any number of instances.
+A sole instance and the first active download open automatically.
+Manual expansion state is preserved across refreshes.
+Transfer and technical archive metrics remain hidden until an instance is expanded.
 
 ## Installation
 
@@ -48,13 +56,23 @@ Containers that do not follow all four conventions are still discovered, but som
 
 ## Authentication retry
 
-When the container healthcheck or recent sync output reports an authentication failure, the card turns red and shows **Retry authentication**.
+When the container healthcheck or recent sync output reports an authentication failure, the card turns red and shows an authentication action.
 
-The button opens an Unraid interactive terminal directly into:
+For a new account without an iCloudPD keyring, the button opens an Unraid interactive terminal directly into:
+
+```bash
+/usr/local/bin/sync-icloud.sh --Initialise
+```
+
+For an account that has already been initialized, it opens:
 
 ```bash
 /usr/local/bin/reauth.sh
 ```
+
+Authentication opens in a normal browser tab through a plugin-owned ttyd launcher.
+The launcher removes stale terminal sockets and keeps a diagnostic log instead of relying on Unraid's popup wrapper.
+The status collector also checks Apple's MFA trust marker so a partial session cannot be reported as healthy.
 
 The plugin never reads or stores an Apple password, MFA code, or cookie content.
 

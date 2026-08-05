@@ -34,7 +34,8 @@ if (!function_exists('ipdw_parse_log')) {
 
     foreach (preg_split('/\r?\n/', $log) as $line) {
       if (preg_match('/Downloading library: ([^\r\n]+)/', $line, $match)) {
-        $result['library'] = ipdw_library_name(trim($match[1]));
+        $result['zone'] = trim($match[1]);
+        $result['library'] = ipdw_library_name($result['zone']);
       }
       if (preg_match('/Downloading ([0-9]+) original photos and videos/', $line, $match)) {
         $result['total'] = (int)$match[1];
@@ -87,13 +88,21 @@ if (!function_exists('ipdw_collect_instance')) {
     $state = $container['State'] ?? [];
     $status = (string)($state['Status'] ?? 'missing');
     $health = (string)($state['Health']['Status'] ?? 'unknown');
-    $hostPath = '';
+    $rootHostPath = '';
+    $libraryHostPaths = [];
     foreach ($container['Mounts'] ?? [] as $mount) {
-      if (($mount['Destination'] ?? '') === '/home/user/iCloud') {
-        $hostPath = (string)($mount['Source'] ?? '');
-        break;
+      $destination = rtrim((string)($mount['Destination'] ?? ''), '/');
+      $source = rtrim((string)($mount['Source'] ?? ''), '/');
+      if ($destination === '/home/user/iCloud') {
+        $rootHostPath = $source;
+      } elseif (strpos($destination, '/home/user/iCloud/') === 0 && $source !== '') {
+        $libraryHostPaths[$destination] = $source;
       }
     }
+    $archivePaths = $libraryHostPaths
+      ? array_values(array_unique($libraryHostPaths))
+      : ($rootHostPath !== '' ? [$rootHostPath] : []);
+    $hostPath = $archivePaths ? $archivePaths[0] : '';
 
     $log = $status === 'running'
       ? ipdw_shell('/usr/bin/docker exec ' . $quotedName . ' cat /tmp/icloudpd/icloudpd_sync.log 2>/dev/null')
@@ -115,21 +124,44 @@ if (!function_exists('ipdw_collect_instance')) {
       $authDays = (int)$authMatch[1];
     }
 
+    $authProbe = 'if [ ! -f /config/python_keyring/keyring_pass.cfg ]; then printf uninitialized; exit; fi; '
+      . 'apple_id="$(grep "^apple_id=" /config/icloudpd.conf | cut -d= -f2-)"; '
+      . 'cookie_file="$(printf "%s" "$apple_id" | tr -cd "a-z0-9_")"; '
+      . 'if [ ! -s "/config/$cookie_file" ]; then printf missing; '
+      . 'elif grep -q "X-APPLE-WEBAUTH-HSA-TRUST" "/config/$cookie_file"; then printf trusted; '
+      . 'else printf untrusted; fi';
+    $authState = $status === 'running'
+      ? ipdw_shell('/usr/bin/docker exec ' . $quotedName . ' sh -c ' . escapeshellarg($authProbe) . ' 2>/dev/null')
+      : 'unknown';
+    $authInitialized = !in_array($authState, ['uninitialized', 'unknown', ''], true);
+    if (in_array($authState, ['missing', 'untrusted'], true)) $authIssue = true;
+    $authAction = $authInitialized
+      ? '/usr/local/bin/reauth.sh'
+      : '/usr/local/bin/sync-icloud.sh --Initialise';
+
     $progress = ipdw_parse_log($log);
 
     $bytes = 0;
     $files = 0;
     $parts = 0;
-    if ($hostPath !== '' && is_dir($hostPath)) {
-      $quotedPath = escapeshellarg($hostPath);
-      $bytes = (int)ipdw_shell('/usr/bin/du -sb ' . $quotedPath . ' 2>/dev/null | /usr/bin/cut -f1');
-      $files = (int)ipdw_shell('/usr/bin/find ' . $quotedPath . " -type f ! -name '.mounted' 2>/dev/null | /usr/bin/wc -l");
-      $parts = (int)ipdw_shell('/usr/bin/find ' . $quotedPath . " -type f -name '*.part' 2>/dev/null | /usr/bin/wc -l");
+    $archiveSources = [];
+    foreach ($archivePaths as $archivePath) {
+      if ($archivePath === '' || !is_dir($archivePath)) continue;
+      $quotedPath = escapeshellarg($archivePath);
+      $pathBytes = (int)ipdw_shell('/usr/bin/du -sb ' . $quotedPath . ' 2>/dev/null | /usr/bin/cut -f1');
+      $pathFiles = (int)ipdw_shell('/usr/bin/find ' . $quotedPath . " -type f ! -name '.mounted' 2>/dev/null | /usr/bin/wc -l");
+      $pathParts = (int)ipdw_shell('/usr/bin/find ' . $quotedPath . " -type f -name '*.part' 2>/dev/null | /usr/bin/wc -l");
+      $archiveSources[$archivePath] = $pathBytes;
+      $bytes += $pathBytes;
+      $files += $pathFiles;
+      $parts += $pathParts;
     }
 
     $zone = (string)($progress['zone'] ?? '');
-    if ($hostPath !== '' && preg_match('/^[A-Za-z0-9_.-]+$/', $zone)) {
-      $libraryPath = rtrim($hostPath, '/') . '/' . $zone;
+    if (preg_match('/^[A-Za-z0-9_.-]+$/', $zone)) {
+      $containerLibraryPath = '/home/user/iCloud/' . $zone;
+      $libraryPath = $libraryHostPaths[$containerLibraryPath]
+        ?? ($rootHostPath !== '' ? $rootHostPath . '/' . $zone : '');
       if (is_dir($libraryPath)) {
         $quotedLibrary = escapeshellarg($libraryPath);
         $progress['downloadedBytes'] = (int)ipdw_shell('/usr/bin/du -sb ' . $quotedLibrary . ' 2>/dev/null | /usr/bin/cut -f1');
@@ -143,11 +175,54 @@ if (!function_exists('ipdw_collect_instance')) {
       }
     }
 
-    $rate = 0;
+    $instantRate = 0;
     $oldTime = (int)($previous['generated'] ?? 0);
     $oldBytes = (int)($previous['bytes'] ?? 0);
+    $oldRate = (int)($previous['rate'] ?? 0);
     if ($oldTime > 0 && $now > $oldTime && $bytes >= $oldBytes) {
-      $rate = (int)(($bytes - $oldBytes) / ($now - $oldTime));
+      $instantRate = (int)(($bytes - $oldBytes) / ($now - $oldTime));
+    }
+
+    $rate = $instantRate;
+    if ($instantRate > 0 && $oldRate > 0) {
+      $rate = (int)round(($oldRate * 0.65) + ($instantRate * 0.35));
+    }
+
+    $rateHistory = [];
+    foreach (($previous['rateHistory'] ?? []) as $sample) {
+      $sampleTime = (int)($sample['time'] ?? 0);
+      $sampleRate = max(0, (int)($sample['rate'] ?? 0));
+      if ($sampleTime >= ($now - 600) && $sampleTime < $now) {
+        $rateHistory[] = ['time' => $sampleTime, 'rate' => $sampleRate];
+      }
+    }
+    if ($oldTime > 0 && $now > $oldTime && $bytes >= $oldBytes) {
+      $rateHistory[] = ['time' => $now, 'rate' => max(0, $instantRate)];
+    }
+    $rateHistory = array_slice($rateHistory, -41);
+
+    $rateTrend = 'measuring';
+    $rateDeltaPercent = null;
+    if ($instantRate > 0 && $oldRate > 0) {
+      $ratio = $instantRate / $oldRate;
+      $rateTrend = $ratio > 1.15 ? 'faster' : ($ratio < 0.85 ? 'slower' : 'stable');
+      $rateDeltaPercent = (int)round((($instantRate - $oldRate) * 100) / $oldRate);
+    }
+
+    $remainingBytes = max(0, (int)$progress['estimatedTotalBytes'] - (int)$progress['downloadedBytes']);
+    $etaSeconds = $rate > 0 && $remainingBytes > 0
+      ? (int)round($remainingBytes / $rate)
+      : 0;
+    if ($authIssue) {
+      $phase = 'Authentication required';
+    } elseif ($status !== 'running') {
+      $phase = ucfirst($status);
+    } elseif (!empty($progress['complete']) || ($progress['total'] > 0 && $progress['done'] >= $progress['total'])) {
+      $phase = 'Complete';
+    } elseif ($progress['total'] > 0) {
+      $phase = 'Downloading originals…';
+    } else {
+      $phase = 'Scanning library';
     }
 
     return array_merge($progress, [
@@ -158,12 +233,23 @@ if (!function_exists('ipdw_collect_instance')) {
       'restarts' => (int)($container['RestartCount'] ?? 0),
       'authIssue' => $authIssue,
       'authDays' => $authDays,
-      'authAction' => '/usr/local/bin/reauth.sh',
+      'authInitialized' => $authInitialized,
+      'authState' => $authState,
+      'authAction' => $authAction,
       'hostPath' => $hostPath,
+      'hostPaths' => $archivePaths,
+      'archiveSources' => $archiveSources,
       'files' => $files,
       'parts' => $parts,
       'bytes' => $bytes,
       'rate' => $rate,
+      'instantRate' => $instantRate,
+      'rateTrend' => $rateTrend,
+      'rateDeltaPercent' => $rateDeltaPercent,
+      'rateHistory' => $rateHistory,
+      'remainingBytes' => $remainingBytes,
+      'etaSeconds' => $etaSeconds,
+      'phase' => $phase,
       'approximate' => true,
     ]);
   }
@@ -184,6 +270,8 @@ if (!function_exists('ipdw_status')) {
       $oldByName[(string)($instance['name'] ?? '')] = [
         'generated' => (int)($old['generated'] ?? 0),
         'bytes' => (int)($instance['bytes'] ?? 0),
+        'rate' => (int)($instance['rate'] ?? 0),
+        'rateHistory' => is_array($instance['rateHistory'] ?? null) ? $instance['rateHistory'] : [],
       ];
     }
 

@@ -5,7 +5,7 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 version="$(tr -d '[:space:]' < "$root/VERSION")"
 output="$root/plugin/icloudpd-status.plg"
 temporary="$output.tmp"
-sources=(status.php widget.php widget-poll.php IcloudpdStatus.page)
+sources=(status.php widget.php widget-poll.php auth-terminal.php auth-terminal-launch.sh IcloudpdStatus.page)
 
 mkdir -p "$root/plugin"
 
@@ -24,9 +24,10 @@ mkdir -p "$root/plugin"
   printf '\n'
   printf '%s\n' '<CHANGES>'
   printf '%s\n' "$version"
-  printf '%s\n' '- Initial public release.'
-  printf '%s\n' '- Automatic multi-instance discovery and per-instance progress.'
-  printf '%s\n' '- MFA health reporting and interactive reauthentication.'
+  printf '%s\n' '- Fixed cookie-path detection that falsely marked authenticated archives as untrusted.'
+  printf '%s\n' '- Correctly reports both active Tural and Suza downloads as healthy.'
+  printf '%s\n' '- Removed the estimate note and Docker and Shares footer actions.'
+  printf '%s\n' '- Added support for clean per-library host folders through nested Docker mounts.'
   printf '%s\n' '</CHANGES>'
   printf '\n'
 
@@ -46,13 +47,18 @@ mkdir -p "$root/plugin"
   printf '%s\n' 'PLG=/boot/config/plugins/icloudpd-status'
   printf '%s\n' 'WEB=/usr/local/emhttp/plugins/icloudpd-status'
   printf '%s\n' 'mkdir -p "$PLG" "$WEB"'
-  printf '%s\n' 'for file in status.php widget.php widget-poll.php IcloudpdStatus.page; do'
+  printf '%s\n' 'for file in status.php widget.php widget-poll.php auth-terminal.php IcloudpdStatus.page; do'
   printf '%s\n' '  [ -f "/tmp/$file.b64" ] || { echo "ERROR: Missing /tmp/$file.b64"; exit 1; }'
   printf '%s\n' '  base64 -d < "/tmp/$file.b64" > "$PLG/$file"'
   printf '%s\n' '  chmod 600 "$PLG/$file"'
   printf '%s\n' '  install -m 600 "$PLG/$file" "$WEB/$file"'
   printf '%s\n' '  rm -f "/tmp/$file.b64"'
   printf '%s\n' 'done'
+  printf '%s\n' '[ -f "/tmp/auth-terminal-launch.sh.b64" ] || { echo "ERROR: Missing /tmp/auth-terminal-launch.sh.b64"; exit 1; }'
+  printf '%s\n' 'base64 -d < "/tmp/auth-terminal-launch.sh.b64" > "$PLG/auth-terminal-launch.sh"'
+  printf '%s\n' 'chmod 700 "$PLG/auth-terminal-launch.sh"'
+  printf '%s\n' 'install -m 700 "$PLG/auth-terminal-launch.sh" "$WEB/auth-terminal-launch.sh"'
+  printf '%s\n' 'rm -f "/tmp/auth-terminal-launch.sh.b64"'
   printf '%s\n' 'rm -f /var/local/emhttp/icloudpd-status-cache.json'
   printf '%s\n' 'echo "icloudpd-status installed. The Dashboard tile discovers all iCloudPD containers automatically."'
   printf '%s\n' ']]>'
