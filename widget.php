@@ -35,7 +35,7 @@ if (!function_exists('ipdw_ago')) {
     $time = strtotime($stamp . ' UTC');
     if (!$time) return $stamp;
     $seconds = max(0, time() - $time);
-    if ($seconds < 90) return 'Just now';
+    if ($seconds < 90) return 'just now';
     if ($seconds < 5400) return (int)round($seconds / 60) . 'm ago';
     if ($seconds < 172800) return (int)round($seconds / 3600) . 'h ago';
     return (int)round($seconds / 86400) . 'd ago';
@@ -56,12 +56,20 @@ if (!function_exists('ipdw_render_body')) {
       $stateClass = $authIssue ? 'ipdw-pill-bad' : ($healthy ? 'ipdw-pill-good' : 'ipdw-pill-warn');
       $percent = number_format((float)$instance['percent'], 1);
       $rate = (int)$instance['rate'] > 0 ? ipdw_size($instance['rate']) . '/s' : 'Measuring';
-      $trendMap = ['faster' => '↑ Faster', 'slower' => '↓ Slower', 'stable' => '→ Stable'];
-      $trend = $trendMap[$instance['rateTrend'] ?? ''] ?? 'Collecting trend';
+      $delta = $instance['rateDeltaPercent'] ?? null;
+      if ($delta === null) {
+        $speedContext = 'Collecting comparison';
+      } elseif (abs((int)$delta) <= 5) {
+        $speedContext = 'Stable vs previous sample';
+      } elseif ((int)$delta > 0) {
+        $speedContext = number_format((int)$delta) . '% faster than previous sample';
+      } else {
+        $speedContext = number_format(abs((int)$delta)) . '% slower than previous sample';
+      }
       $eta = (int)$instance['etaSeconds'] > 0 ? '~' . ipdw_duration($instance['etaSeconds']) : 'Calculating';
       if (($instance['phase'] ?? '') === 'Complete') $eta = 'Complete';
       $authText = $instance['authDays'] !== null
-        ? 'Valid for ' . number_format((int)$instance['authDays']) . ' days'
+        ? number_format((int)$instance['authDays']) . ' days'
         : ($authIssue ? 'Sign-in required' : 'Checking');
       $lastActivity = ipdw_ago($instance['lastActivity'] ?? '');
 
@@ -80,17 +88,20 @@ if (!function_exists('ipdw_render_body')) {
             . "<div class='ipdw-eta'><span>Estimated completion</span><b>" . ipdw_h($eta) . "</b></div></div>"
             . "<div class='ipdw-bar' title='Progress is approximate'><div class='ipdw-fill' style='width:" . $percent . "%'></div></div>"
             . "<div class='ipdw-items'><b>" . number_format((int)$instance['done']) . "</b> of " . number_format((int)$instance['total']) . " items</div>"
-            . "<div class='ipdw-storage'><b>" . ipdw_size($instance['downloadedBytes']) . "</b> of ~" . ipdw_size($instance['estimatedTotalBytes'])
+            . "<div class='ipdw-storage'><div><b>" . ipdw_size($instance['downloadedBytes']) . "</b> of ~" . ipdw_size($instance['estimatedTotalBytes']) . " downloaded</div>"
             . "<span>~" . ipdw_size($instance['remainingBytes']) . " remaining</span></div>"
             . "</section>";
 
       $out .= "<div class='ipdw-groups'>"
-            . "<section class='ipdw-group'><h4>Performance</h4>"
+            . "<section class='ipdw-group'><h4>Download speed</h4>"
             . "<div class='ipdw-big-value'><i class='fa fa-tachometer'></i><b>" . ipdw_h($rate) . "</b></div>"
-            . "<div class='ipdw-secondary'>" . ipdw_h($trend) . "<span>Last activity " . ipdw_h($lastActivity) . "</span></div></section>"
-            . "<section class='ipdw-group'><h4>Health</h4>"
+            . "<div class='ipdw-secondary'>" . ipdw_h($speedContext) . "<span>Updated " . ipdw_h($lastActivity) . "</span></div></section>"
+            . "<section class='ipdw-group'><h4>Status</h4>"
             . "<div><span class='ipdw-pill " . $stateClass . "'><i></i>" . ipdw_h($state) . "</span></div>"
-            . "<div class='ipdw-secondary'>" . ipdw_h($authText) . "<span>" . number_format((int)$instance['errors']) . " errors</span></div></section>"
+            . "<div class='ipdw-status-rows'>"
+            . "<div><span class='" . ($authIssue ? 'ipdw-row-bad' : '') . "'><i class='fa " . ($authIssue ? 'fa-times' : 'fa-check') . "'></i> Authentication</span><b>" . ipdw_h($authText) . "</b></div>"
+            . "<div><span class='" . ((int)$instance['errors'] > 0 ? 'ipdw-row-bad' : '') . "'><i class='fa " . ((int)$instance['errors'] > 0 ? 'fa-exclamation' : 'fa-check') . "'></i> Errors</span><b>" . number_format((int)$instance['errors']) . "</b></div>"
+            . "</div></section>"
             . "</div>";
 
       $out .= "<details class='ipdw-details'><summary>Archive details</summary><div class='ipdw-detail-grid'>"

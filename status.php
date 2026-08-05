@@ -156,9 +156,11 @@ if (!function_exists('ipdw_collect_instance')) {
       $rate = (int)round(($oldRate * 0.65) + ($instantRate * 0.35));
     }
     $rateTrend = 'measuring';
+    $rateDeltaPercent = null;
     if ($instantRate > 0 && $oldRate > 0) {
       $ratio = $instantRate / $oldRate;
       $rateTrend = $ratio > 1.15 ? 'faster' : ($ratio < 0.85 ? 'slower' : 'stable');
+      $rateDeltaPercent = (int)round((($instantRate - $oldRate) * 100) / $oldRate);
     }
 
     $remainingBytes = max(0, (int)$progress['estimatedTotalBytes'] - (int)$progress['downloadedBytes']);
@@ -193,6 +195,7 @@ if (!function_exists('ipdw_collect_instance')) {
       'rate' => $rate,
       'instantRate' => $instantRate,
       'rateTrend' => $rateTrend,
+      'rateDeltaPercent' => $rateDeltaPercent,
       'remainingBytes' => $remainingBytes,
       'etaSeconds' => $etaSeconds,
       'phase' => $phase,
